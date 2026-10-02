@@ -44,10 +44,11 @@ def clear_all_data():
 
 def create_session(uid, timestamp, locale, user_agent):
     """Create and store a new Session record tuple."""
-    if uid in _SESSIONS:
-        raise ValueError(f"Session with uid {uid} already exists")
+    int_uid = int(uid)
+    if int_uid in _SESSIONS:
+        raise ValueError(f"Session with uid {int_uid} already exists")
     record = SessionRecord(
-        int(uid), int(timestamp), str(locale), str(user_agent)
+        int_uid, int(timestamp), str(locale), str(user_agent)
     )
     _SESSIONS[record.uid] = record
     return record
