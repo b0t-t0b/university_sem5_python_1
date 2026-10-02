@@ -75,3 +75,8 @@ journal.log
 *.tar.gz
 *.7z
 *.rar
+
+# Coursework generator helpers
+generate_screenshots.py
+make_report.py
+screenshots/
