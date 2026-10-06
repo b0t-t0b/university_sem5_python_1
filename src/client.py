@@ -180,15 +180,10 @@ class RPCClient:
             "timestamp", "output", "status",
             "exception", "request", "cache_hit"
         ]
-        params = {"uid": uid}
-        for idx, val in enumerate(args):
-            if idx < len(fields):
-                params[fields[idx]] = val
-        for key in fields:
-            if key in kwargs:
-                params[key] = kwargs[key]
-            elif key not in params:
-                params[key] = None
+        params = {k: None for k in fields}
+        params.update(dict(zip(fields, args)))
+        params.update(kwargs)
+        params["uid"] = uid
         return self._call(OP_UPDATE_ANSWER, **params)
 
     def query_sessions_requests(self, now=None):

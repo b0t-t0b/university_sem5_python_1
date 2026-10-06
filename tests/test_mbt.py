@@ -170,6 +170,10 @@ class ReferenceModel:
         """Model get all answers."""
         return list(self.answers.values())
 
+    def _merge(self, cur_val, new_val, cast_fn):
+        """Cast new_val if given, otherwise keep cur_val."""
+        return cur_val if new_val is None else cast_fn(new_val)
+
     def update_answer(self, uid, *args, **kwargs):
         """Model update answer."""
         if uid not in self.answers:
@@ -179,30 +183,20 @@ class ReferenceModel:
             "timestamp", "output", "status",
             "exception", "request", "cache_hit"
         ]
-        vals = {}
-        for idx, val in enumerate(args):
-            if idx < len(fields):
-                vals[fields[idx]] = val
-        for key in fields:
-            if key in kwargs:
-                vals[key] = kwargs[key]
-        ts_val = vals.get("timestamp")
-        new_ts = cur[1] if ts_val is None else int(ts_val)
-        out_val = vals.get("output")
-        new_out = cur[2] if out_val is None else str(out_val)
-        st_val = vals.get("status")
-        new_st = cur[3] if st_val is None else str(st_val)
-        exc_val = vals.get("exception")
-        new_exc = cur[4] if exc_val is None else str(exc_val)
+        vals = dict(zip(fields, args))
+        vals.update(kwargs)
         req_val = vals.get("request")
         new_req = cur[5] if req_val is None else int(req_val)
         if new_req not in self.requests:
             raise ValueError(f"Request {new_req} missing")
-        hit_val = vals.get("cache_hit")
-        new_hit = cur[6] if hit_val is None else int(hit_val)
         rec = (
-            int(uid), new_ts, new_out, new_st,
-            new_exc, new_req, new_hit
+            int(uid),
+            self._merge(cur[1], vals.get("timestamp"), int),
+            self._merge(cur[2], vals.get("output"), str),
+            self._merge(cur[3], vals.get("status"), str),
+            self._merge(cur[4], vals.get("exception"), str),
+            new_req,
+            self._merge(cur[6], vals.get("cache_hit"), int),
         )
         self.answers[uid] = rec
         return rec
