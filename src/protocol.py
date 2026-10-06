@@ -1,6 +1,6 @@
 """Binary framing and XML serialization for Variant 22 RPC."""
 
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as elem_tree
 from src.constants import (
     BYTE_ORDER,
     ENCODING,
@@ -66,20 +66,20 @@ def decode_response_header(header_bytes):
 
 def serialize_request_xml(params):
     """Convert dictionary of parameters to UTF-8 XML bytes."""
-    root = ET.Element("request")
-    params_elem = ET.SubElement(root, "params")
+    root = elem_tree.Element("request")
+    params_elem = elem_tree.SubElement(root, "params")
     for key, val in params.items():
-        child = ET.SubElement(params_elem, "param", name=key)
+        child = elem_tree.SubElement(params_elem, "param", name=key)
         if val is None:
             child.set("null", "true")
         else:
             child.text = str(val)
-    return ET.tostring(root, encoding=ENCODING)
+    return elem_tree.tostring(root, encoding=ENCODING)
 
 
 def deserialize_request_xml(xml_bytes):
     """Parse request XML bytes into parameter dictionary."""
-    root = ET.fromstring(xml_bytes)
+    root = elem_tree.fromstring(xml_bytes)
     params = {}
     params_elem = root.find("params")
     if params_elem is not None:
@@ -95,20 +95,20 @@ def deserialize_request_xml(xml_bytes):
 def _append_val(parent, val):
     """Append serialized representation of Python value to XML parent."""
     if val is None:
-        node = ET.SubElement(parent, "null")
+        node = elem_tree.SubElement(parent, "null")
     elif isinstance(val, bool):
-        node = ET.SubElement(parent, "bool")
+        node = elem_tree.SubElement(parent, "bool")
         node.text = str(val).lower()
     elif isinstance(val, int):
-        node = ET.SubElement(parent, "int")
+        node = elem_tree.SubElement(parent, "int")
         node.text = str(val)
     elif isinstance(val, (list, tuple)):
         tag_name = "tuple" if isinstance(val, tuple) else "list"
-        node = ET.SubElement(parent, tag_name)
+        node = elem_tree.SubElement(parent, tag_name)
         for sub_val in val:
             _append_val(node, sub_val)
     else:
-        node = ET.SubElement(parent, "str")
+        node = elem_tree.SubElement(parent, "str")
         node.text = str(val)
 
 
@@ -131,21 +131,21 @@ def _parse_val(elem):
 
 def serialize_response_xml(status, result=None, error=None):
     """Convert status and payload to UTF-8 XML response bytes."""
-    root = ET.Element("response")
-    st_elem = ET.SubElement(root, "status")
+    root = elem_tree.Element("response")
+    st_elem = elem_tree.SubElement(root, "status")
     st_elem.text = status
     if status == STATUS_SUCCESS:
-        res_elem = ET.SubElement(root, "result")
+        res_elem = elem_tree.SubElement(root, "result")
         _append_val(res_elem, result)
     else:
-        err_elem = ET.SubElement(root, "error")
+        err_elem = elem_tree.SubElement(root, "error")
         err_elem.text = "" if error is None else str(error)
-    return ET.tostring(root, encoding=ENCODING)
+    return elem_tree.tostring(root, encoding=ENCODING)
 
 
 def deserialize_response_xml(xml_bytes):
     """Parse response XML returning (status, payload)."""
-    root = ET.fromstring(xml_bytes)
+    root = elem_tree.fromstring(xml_bytes)
     status_node = root.find("status")
     status = status_node.text if status_node is not None else STATUS_ERROR
     if status == STATUS_SUCCESS:

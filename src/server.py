@@ -26,6 +26,7 @@ from src.constants import (
     STATUS_ERROR,
     STATUS_SUCCESS,
     ZERO,
+    ONE,
 )
 import src.data_layer as dl
 import src.protocol as proto
@@ -143,7 +144,9 @@ class RPCRequestHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         """Process messages on persistent client connection."""
-        addr_str = f"{self.client_address[ZERO]}:{self.client_address[1]}"
+        addr_str = "%s:%s" % (
+            self.client_address[ZERO], self.client_address[ONE]
+        )
         while True:
             raw_header = _recv_exact(self.request, REQ_HEADER_SIZE)
             if raw_header is None:
@@ -191,7 +194,7 @@ def run_standalone_server(host=DEFAULT_HOST, port=DEFAULT_PORT,
     """Run RPC server in main thread until interrupted."""
     with ThreadedTCPServer((host, port), RPCRequestHandler,
                            journal_file=journal_file) as srv:
-        print(f"RPC Server listening on {host}:{port}")
+        print("RPC Server listening on %s:%s" % (host, port))
         try:
             srv.serve_forever()
         except KeyboardInterrupt:

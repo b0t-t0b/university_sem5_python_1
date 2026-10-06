@@ -21,6 +21,8 @@ from src.constants import (
     RESP_HEADER_SIZE,
     STATUS_ERROR,
     ZERO,
+    ONE,
+    TWO,
 )
 import src.protocol as proto
 
@@ -142,17 +144,26 @@ class RPCClient:
         )
 
     def create_answer(self, uid, timestamp, output, status,
-                      exception, request, cache_hit):
+                      *extra, **kwargs):
         """Call remote create_answer procedure."""
+        exc = kwargs.get("exception")
+        req = kwargs.get("request")
+        hit = kwargs.get("cache_hit")
+        if len(extra) > ZERO:
+            exc = extra[ZERO]
+        if len(extra) > ONE:
+            req = extra[ONE]
+        if len(extra) > TWO:
+            hit = extra[TWO]
         return self._call(
             OP_CREATE_ANSWER,
             uid=uid,
             timestamp=timestamp,
             output=output,
             status=status,
-            exception=exception,
-            request=request,
-            cache_hit=cache_hit
+            exception=exc,
+            request=req,
+            cache_hit=hit
         )
 
     def delete_answer(self, uid):
@@ -163,19 +174,22 @@ class RPCClient:
         """Call remote get_all_answers procedure."""
         return self._call(OP_GET_ALL_ANSWERS)
 
-    def update_answer(self, uid, timestamp=None, output=None, status=None,
-                      exception=None, request=None, cache_hit=None):
+    def update_answer(self, uid, *args, **kwargs):
         """Call remote update_answer procedure."""
-        return self._call(
-            OP_UPDATE_ANSWER,
-            uid=uid,
-            timestamp=timestamp,
-            output=output,
-            status=status,
-            exception=exception,
-            request=request,
-            cache_hit=cache_hit
-        )
+        fields = [
+            "timestamp", "output", "status",
+            "exception", "request", "cache_hit"
+        ]
+        params = {"uid": uid}
+        for idx, val in enumerate(args):
+            if idx < len(fields):
+                params[fields[idx]] = val
+        for key in fields:
+            if key in kwargs:
+                params[key] = kwargs[key]
+            elif key not in params:
+                params[key] = None
+        return self._call(OP_UPDATE_ANSWER, **params)
 
     def query_sessions_requests(self, now=None):
         """Call remote query_sessions_requests procedure."""

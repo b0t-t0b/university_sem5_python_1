@@ -16,33 +16,35 @@ from src.constants import (
     DEFAULT_HOST,
     QUERY_TIME_WINDOW_SECONDS,
     ZERO,
+    ONE,
+    TWO,
 )
 import src.data_layer as dl
 from src.server import RPCRequestHandler, ThreadedTCPServer
 
-_SERVER = None
-_SERVER_THREAD = None
-_SERVER_PORT = 0
+_server = None
+_server_thread = None
+_server_port = 0
 
 
 def setup_module():
     """Start shared background TCP RPC server for MBT testing."""
-    global _SERVER, _SERVER_THREAD, _SERVER_PORT
-    _SERVER = ThreadedTCPServer(
+    global _server, _server_thread, _server_port
+    _server = ThreadedTCPServer(
         (DEFAULT_HOST, ZERO), RPCRequestHandler
     )
-    _SERVER_PORT = _SERVER.server_address[1]
-    _SERVER_THREAD = threading.Thread(
-        target=_SERVER.serve_forever, daemon=True
+    _server_port = _server.server_address[1]
+    _server_thread = threading.Thread(
+        target=_server.serve_forever, daemon=True
     )
-    _SERVER_THREAD.start()
+    _server_thread.start()
 
 
 def teardown_module():
     """Shut down shared background TCP RPC server after MBT testing."""
-    if _SERVER is not None:
-        _SERVER.shutdown()
-        _SERVER.server_close()
+    if _server is not None:
+        _server.shutdown()
+        _server.server_close()
 
 
 class ReferenceModel:
@@ -135,8 +137,17 @@ class ReferenceModel:
         self.requests[uid] = rec
         return rec
 
-    def create_answer(self, uid, ts, out, st_code, exc, req, hit):
+    def create_answer(self, uid, ts, out, st_code, *extra, **kwargs):
         """Model create answer with FK check."""
+        exc = kwargs.get("exception")
+        req = kwargs.get("request")
+        hit = kwargs.get("cache_hit")
+        if len(extra) > ZERO:
+            exc = extra[ZERO]
+        if len(extra) > ONE:
+            req = extra[ONE]
+        if len(extra) > TWO:
+            hit = extra[TWO]
         if uid in self.answers:
             raise ValueError(f"Answer {uid} exists")
         if req not in self.requests:
@@ -159,21 +170,36 @@ class ReferenceModel:
         """Model get all answers."""
         return list(self.answers.values())
 
-    def update_answer(self, uid, timestamp=None, output=None,
-                      status=None, exception=None,
-                      request=None, cache_hit=None):
+    def update_answer(self, uid, *args, **kwargs):
         """Model update answer."""
         if uid not in self.answers:
             raise KeyError(f"Answer {uid} not found")
         cur = self.answers[uid]
-        new_req = cur[5] if request is None else int(request)
+        fields = [
+            "timestamp", "output", "status",
+            "exception", "request", "cache_hit"
+        ]
+        vals = {}
+        for idx, val in enumerate(args):
+            if idx < len(fields):
+                vals[fields[idx]] = val
+        for key in fields:
+            if key in kwargs:
+                vals[key] = kwargs[key]
+        ts_val = vals.get("timestamp")
+        new_ts = cur[1] if ts_val is None else int(ts_val)
+        out_val = vals.get("output")
+        new_out = cur[2] if out_val is None else str(out_val)
+        st_val = vals.get("status")
+        new_st = cur[3] if st_val is None else str(st_val)
+        exc_val = vals.get("exception")
+        new_exc = cur[4] if exc_val is None else str(exc_val)
+        req_val = vals.get("request")
+        new_req = cur[5] if req_val is None else int(req_val)
         if new_req not in self.requests:
             raise ValueError(f"Request {new_req} missing")
-        new_ts = cur[1] if timestamp is None else int(timestamp)
-        new_out = cur[2] if output is None else str(output)
-        new_st = cur[3] if status is None else str(status)
-        new_exc = cur[4] if exception is None else str(exception)
-        new_hit = cur[6] if cache_hit is None else int(cache_hit)
+        hit_val = vals.get("cache_hit")
+        new_hit = cur[6] if hit_val is None else int(hit_val)
         rec = (
             int(uid), new_ts, new_out, new_st,
             new_exc, new_req, new_hit
@@ -207,7 +233,7 @@ class RPCModelComparison(RuleBasedStateMachine):
         """Initialize state machine run."""
         super().__init__()
         self.model = ReferenceModel()
-        self.client = RPCClient(host=DEFAULT_HOST, port=_SERVER_PORT)
+        self.client = RPCClient(host=DEFAULT_HOST, port=_server_port)
         self.client.connect()
         dl.clear_all_data()
         self.model.clear()
